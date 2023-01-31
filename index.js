@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 const port = process.env.PORT || 5001;
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 
 //midleware
@@ -22,17 +22,52 @@ async function run() {
       .db("rentHome")
       .collection("bachelorsHomes");
 
+    const familyHomeCollection = client
+      .db("rentHome")
+      .collection("familyHomes");
+
+    //get bachelors all homes
     app.get("/bachelosHomes", async (req, res) => {
       const query = {};
       const option = await bachelosHomeCollection.find(query).toArray();
       res.send(option);
     });
 
+    //get bachelors latest 3 homes
     app.get("/latestBachelosHomes", async (req, res) => {
       const availableQuery = { available: "true" };
       const availableHomes = await bachelosHomeCollection
         .find(availableQuery)
-        .sort({ date: 1 })
+        .sort({ date: -1 })
+        .toArray();
+      const filter = availableHomes
+        .filter((availableHome) => availableHome.available === "true")
+        .slice(0, 3);
+      res.send(filter);
+    });
+    
+
+    //get bachelors all homes by id
+    app.get("/bachelosHomesDetails/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const details = await bachelosHomeCollection.findOne(query);
+      res.send(details);
+    });
+
+    //get family all homes
+    app.get("/familyHomes", async (req, res) => {
+      const query = {};
+      const option = await familyHomeCollection.find(query).toArray();
+      res.send(option);
+    });
+
+    //get family latest 3 homes
+    app.get("/latestFamilyHomes", async (req, res) => {
+      const availableQuery = { available: "true" };
+      const availableHomes = await familyHomeCollection
+        .find(availableQuery)
+        .sort({ date: -1 })
         .toArray();
       const filter = availableHomes
         .filter((availableHome) => availableHome.available === "true")
