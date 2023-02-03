@@ -26,10 +26,26 @@ async function run() {
       .db("rentHome")
       .collection("familyHomes");
 
+    //get common location
+    app.get("/commonLocation", async (req, res) => {
+      const bachelorsAddress = await bachelosHomeCollection.distinct(
+        "address",
+        {}
+      );
+      const FamilyAddress = await familyHomeCollection.distinct("address", {});
+      const allAddress = bachelorsAddress.concat(FamilyAddress);
+      const hasmap = [];
+      for (const elm of allAddress) {
+        if (hasmap.indexOf(elm) === -1) {
+          hasmap.push(elm);
+        }
+      }
+     res.send(hasmap);
+    });
+
     //get bachelors all homes
     app.get("/bachelosHomes", async (req, res) => {
-      const query = {};
-      const option = await bachelosHomeCollection.find(query).toArray();
+      const option = await bachelosHomeCollection.find().toArray();
       res.send(option);
     });
 
@@ -45,7 +61,6 @@ async function run() {
         .slice(0, 3);
       res.send(filter);
     });
-    
 
     //get bachelors all homes by id
     app.get("/bachelosHomesDetails/:id", async (req, res) => {
@@ -55,11 +70,33 @@ async function run() {
       res.send(details);
     });
 
+    // temporary to update type field
+    // app.get('/addType', async (req, res) => {
+    //     const filter = {};
+    //     const options = { upsert: true }
+    //     const updatedDoc = {
+    //         $set: {
+    //             type: "bechalors"
+    //         }
+    //     }
+    //     const result = await bachelosHomeCollection.updateMany(filter, updatedDoc, options)
+    //     res.send(result)
+
+    // })
+
     //get family all homes
     app.get("/familyHomes", async (req, res) => {
       const query = {};
       const option = await familyHomeCollection.find(query).toArray();
       res.send(option);
+    });
+
+    //get bachelors all homes by id
+    app.get("/familyHomesDetails/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const details = await familyHomeCollection.findOne(query);
+      res.send(details);
     });
 
     //get family latest 3 homes
