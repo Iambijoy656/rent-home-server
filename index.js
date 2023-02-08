@@ -18,41 +18,31 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    const bachelosHomeCollection = client
-      .db("rentHome")
-      .collection("bachelorsHomes");
-
-    const familyHomeCollection = client
-      .db("rentHome")
-      .collection("familyHomes");
+    const allHomeCollection = client.db("rentHome").collection("allHomes");
 
     //get common location
     app.get("/commonLocation", async (req, res) => {
-      const bachelorsAddress = await bachelosHomeCollection.distinct(
-        "address",
-        {}
-      );
-      const FamilyAddress = await familyHomeCollection.distinct("address", {});
-      const allAddress = bachelorsAddress.concat(FamilyAddress);
-      const hasmap = [];
-      for (const elm of allAddress) {
-        if (hasmap.indexOf(elm) === -1) {
-          hasmap.push(elm);
-        }
-      }
-     res.send(hasmap);
+      const address = await allHomeCollection.distinct("address", {});
+      res.send(address);
+    });
+
+    //get common District
+    app.get("/commonDistrict", async (req, res) => {
+      const district = await allHomeCollection.distinct("district", {});
+      res.send(district);
     });
 
     //get bachelors all homes
     app.get("/bachelosHomes", async (req, res) => {
-      const option = await bachelosHomeCollection.find().toArray();
+      const query = { available: "true", type: "bechalors" };
+      const option = await allHomeCollection.find(query).toArray();
       res.send(option);
     });
 
     //get bachelors latest 3 homes
     app.get("/latestBachelosHomes", async (req, res) => {
-      const availableQuery = { available: "true" };
-      const availableHomes = await bachelosHomeCollection
+      const availableQuery = { available: "true", type: "bechalors" };
+      const availableHomes = await allHomeCollection
         .find(availableQuery)
         .sort({ date: -1 })
         .toArray();
@@ -66,7 +56,7 @@ async function run() {
     app.get("/bachelosHomesDetails/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
-      const details = await bachelosHomeCollection.findOne(query);
+      const details = await allHomeCollection.findOne(query);
       res.send(details);
     });
 
@@ -81,28 +71,47 @@ async function run() {
     //     }
     //     const result = await bachelosHomeCollection.updateMany(filter, updatedDoc, options)
     //     res.send(result)
-
     // })
 
-    //get family all homes
-    app.get("/familyHomes", async (req, res) => {
-      const query = {};
-      const option = await familyHomeCollection.find(query).toArray();
+    //get query all homes
+    app.get("/homes", async (req, res) => {
+      const { location, district, type } = req.query;
+      let query = {
+        $or: [
+          {
+            district: 0,
+            address: location,
+            type: type,
+          },
+          {
+            address:0,
+            district: district,
+            type: type,
+          },
+          {
+            address: location,
+            district: district,
+            type: type,
+          },
+        ],
+      };
+
+      const option = await allHomeCollection.find(query).toArray();
       res.send(option);
     });
 
-    //get bachelors all homes by id
+    //get family all homes by id
     app.get("/familyHomesDetails/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
-      const details = await familyHomeCollection.findOne(query);
+      const details = await allHomeCollection.findOne(query);
       res.send(details);
     });
 
     //get family latest 3 homes
     app.get("/latestFamilyHomes", async (req, res) => {
-      const availableQuery = { available: "true" };
-      const availableHomes = await familyHomeCollection
+      const availableQuery = { available: "true", type: "family" };
+      const availableHomes = await allHomeCollection
         .find(availableQuery)
         .sort({ date: -1 })
         .toArray();
