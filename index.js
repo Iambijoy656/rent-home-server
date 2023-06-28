@@ -76,25 +76,21 @@ async function run() {
     //get query all homes
     app.get("/homes", async (req, res) => {
       const { location, district, type } = req.query;
-      let query = {
-        $or: [
-          {
-            district: 0,
-            address: location,
-            type: type,
-          },
-          {
-            address:0,
-            district: district,
-            type: type,
-          },
-          {
-            address: location,
-            district: district,
-            type: type,
-          },
-        ],
-      };
+      let query = {};
+
+      if (location && district && type) {
+        query = {
+          $or: [
+            {
+              address: location,
+              district: district,
+              type: type,
+            },
+          ],
+        };
+      } else {
+        query = { type: type };
+      }
 
       const option = await allHomeCollection.find(query).toArray();
       res.send(option);
