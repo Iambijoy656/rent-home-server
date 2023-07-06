@@ -19,6 +19,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const allHomeCollection = client.db("rentHome").collection("allHomes");
+    const usersCollection = client.db("rentHome").collection("users");
 
     //get common location
     app.get("/commonLocation", async (req, res) => {
@@ -54,6 +55,21 @@ async function run() {
 
     //get bachelors all homes by id
     app.get("/bachelosHomesDetails/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const details = await allHomeCollection.findOne(query);
+      res.send(details);
+    });
+    //get family all homes by id
+    app.get("/familyHomesDetails/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const details = await allHomeCollection.findOne(query);
+      res.send(details);
+    });
+
+    //get homes by id
+    app.get("/home/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const details = await allHomeCollection.findOne(query);
@@ -96,14 +112,6 @@ async function run() {
       res.send(option);
     });
 
-    //get family all homes by id
-    app.get("/familyHomesDetails/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: ObjectId(id) };
-      const details = await allHomeCollection.findOne(query);
-      res.send(details);
-    });
-
     //get family latest 3 homes
     app.get("/latestFamilyHomes", async (req, res) => {
       const availableQuery = { available: "true", type: "family" };
@@ -115,6 +123,13 @@ async function run() {
         .filter((availableHome) => availableHome.available === "true")
         .slice(0, 3);
       res.send(filter);
+    });
+
+    //users  database
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
     });
   } finally {
   }
