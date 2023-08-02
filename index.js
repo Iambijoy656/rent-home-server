@@ -5,6 +5,12 @@ const port = process.env.PORT || 5001;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 
+//Nodemailer
+const nodemailer = require("nodemailer");
+const mg = require("nodemailer-mailgun-transport");
+
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
 //midleware
 app.use(cors());
 app.use(express.json());
@@ -16,10 +22,49 @@ const client = new MongoClient(uri, {
   serverApi: ServerApiVersion.v1,
 });
 
+//send payments in email
+function sendPaymentEmail(payment) {
+  const auth = {
+    auth: {
+      api_key: process.env.EMAIL_SEND_KEY,
+      domain: process.env.EMAIL_SEND_DOMAIN,
+    },
+  };
+
+  const transporter = nodemailer.createTransport(mg(auth));
+
+  transporter.sendMail(
+    {
+      from: "bijoydas00656@gmail.com", // verified sender email
+      to: payment.email || "bijoydas00656@gmail.com", // recipient email
+      subject: `Your advance payment for Home rent is confirm`, // Subject line
+      text: `Hello ${payment.name}`, // plain text body
+      html: `
+  <h3>Your Payment is Successfull</h3>
+
+  <div>
+  <p> Your Payment for Home: ${payment.bookHomeId}</p>
+  <p>Thanks from Rent Home Website.</p>
+  
+  </div>
+  
+  `, // html body
+    },
+    function (error, info) {
+      if (error) {
+        console.log("error is:", error);
+      } else {
+        console.log("Email sent: " + info.response);
+      }
+    }
+  );
+}
+
 async function run() {
   try {
     const allHomeCollection = client.db("rentHome").collection("allHomes");
     const usersCollection = client.db("rentHome").collection("users");
+    const paymentsCollection = client.db("rentHome").collection("payments");
 
     //get common location
     app.get("/commonLocation", async (req, res) => {
@@ -76,18 +121,18 @@ async function run() {
       res.send(details);
     });
 
-    // temporary to update type field
-    // app.get('/addType', async (req, res) => {
-    //     const filter = {};
-    //     const options = { upsert: true }
-    //     const updatedDoc = {
-    //         $set: {
-    //             type: "bechalors"
-    //         }
-    //     }
-    //     const result = await bachelosHomeCollection.updateMany(filter, updatedDoc, options)
-    //     res.send(result)
-    // })
+     // temporary to update type field
+      app.get('/addType', async (req, res) => {
+          const filter = {};
+          const options = { upsert: true }
+          const updatedDoc = {
+              $set: {
+                available: "true",
+              }
+          }
+          const result = await allHomeCollection.updateMany(filter, updatedDoc, options)
+          res.send(result)
+      })
 
     //get query all homes
     app.get("/homes", async (req, res) => {
@@ -130,6 +175,101 @@ async function run() {
       const user = req.body;
       const result = await usersCollection.insertOne(user);
       res.send(result);
+    });
+
+    // get users
+    app.get("/users", async (req, res) => {
+      const result = await usersCollection.find({}).toArray();
+      res.send(result);
+    });
+
+    //creak user admin
+    app.get("/users/admin/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      res.send({ isAdmin: user?.role === "admin" });
+    });
+
+
+    //creak home owner 
+    app.get("/users/owner/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      res.send({ isOwner: user?.role === "owner" });
+    });
+
+
+    // make admin
+    app.put("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+
+      const user = await usersCollection.findOne({ _id: ObjectId(id) });
+      if (user.role !== "admin") {
+        return res.status(403).send({ message: "Forbidden access" });
+      }
+
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await usersCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
+
+    //for payment
+    app.post("/create-payment-intent", async (req, res) => {
+      const home = req.body;
+      const price = home.rent;
+      const amount = price * 100;
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        currency: "bdt",
+        amount: amount,
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      console.log(payment);
+      const result = await paymentsCollection.insertOne(payment);
+      const id = payment.bookHomeId;
+      const homeId = payment.bookHomeId;
+      const homeFilter = { _id: ObjectId(homeId) };
+      const updatedProductDoc = {
+        $set: {
+          available: false,
+        },
+      };
+      const updateProduct = await allHomeCollection.updateOne(
+        homeFilter,
+        updatedProductDoc
+      );
+
+      //send email about room payment confirmation
+      sendPaymentEmail(payment);
+
+      res.send(result);
+    });
+
+    //get user booked home
+    app.get("/rentHomes", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const rentHome = await paymentsCollection.find(query).toArray();
+      res.send(rentHome);
     });
   } finally {
   }
