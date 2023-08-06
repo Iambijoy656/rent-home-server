@@ -121,18 +121,22 @@ async function run() {
       res.send(details);
     });
 
-     // temporary to update type field
-      app.get('/addType', async (req, res) => {
-          const filter = {};
-          const options = { upsert: true }
-          const updatedDoc = {
-              $set: {
-                available: "true",
-              }
-          }
-          const result = await allHomeCollection.updateMany(filter, updatedDoc, options)
-          res.send(result)
-      })
+    // temporary to update type field
+    app.get("/addType", async (req, res) => {
+      const filter = {};
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          available: "true",
+        },
+      };
+      const result = await allHomeCollection.updateMany(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
 
     //get query all homes
     app.get("/homes", async (req, res) => {
@@ -191,14 +195,25 @@ async function run() {
       res.send({ isAdmin: user?.role === "admin" });
     });
 
-
-    //creak home owner 
+    //creak home owner
     app.get("/users/owner/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email };
       const user = await usersCollection.findOne(query);
       res.send({ isOwner: user?.role === "owner" });
     });
+
+
+    //creak home Renter
+    app.get("/users/renter/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      res.send({ isRenter: user?.role === "renter" });
+    });
+
+
+
 
 
     // make admin
@@ -270,6 +285,13 @@ async function run() {
       const query = { email: email };
       const rentHome = await paymentsCollection.find(query).toArray();
       res.send(rentHome);
+    });
+
+    //add home by home owner
+    app.post("/add-home", async (req, res) => {
+      const home = req.body;
+      const result = await allHomeCollection.insertOne(home);
+      res.send(result);
     });
   } finally {
   }
