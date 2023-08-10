@@ -5,6 +5,13 @@ const port = process.env.PORT || 5001;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 
+//firebase
+const admin = require("firebase-admin");
+const serviceAccount = require("./rent-home-82477-firebase-adminsdk-orzl5-f6dc9bf0ef.json");
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
 //Nodemailer
 const nodemailer = require("nodemailer");
 const mg = require("nodemailer-mailgun-transport");
@@ -121,22 +128,22 @@ async function run() {
       res.send(details);
     });
 
-    // temporary to update type field
-    app.get("/addType", async (req, res) => {
-      const filter = {};
-      const options = { upsert: true };
-      const updatedDoc = {
-        $set: {
-          available: "true",
-        },
-      };
-      const result = await allHomeCollection.updateMany(
-        filter,
-        updatedDoc,
-        options
-      );
-      res.send(result);
-    });
+    // // temporary to update type field
+    // app.get("/addType", async (req, res) => {
+    //   const filter = {};
+    //   const options = { upsert: true };
+    //   const updatedDoc = {
+    //     $set: {
+    //       available: "true",
+    //     },
+    //   };
+    //   const result = await allHomeCollection.updateMany(
+    //     filter,
+    //     updatedDoc,
+    //     options
+    //   );
+    //   res.send(result);
+    // });
 
     //get query all homes
     app.get("/homes", async (req, res) => {
@@ -203,7 +210,6 @@ async function run() {
       res.send({ isOwner: user?.role === "owner" });
     });
 
-
     //creak home Renter
     app.get("/users/renter/:email", async (req, res) => {
       const email = req.params.email;
@@ -211,10 +217,6 @@ async function run() {
       const user = await usersCollection.findOne(query);
       res.send({ isRenter: user?.role === "renter" });
     });
-
-
-
-
 
     // make admin
     app.put("/users/admin/:id", async (req, res) => {
@@ -292,6 +294,40 @@ async function run() {
       const home = req.body;
       const result = await allHomeCollection.insertOne(home);
       res.send(result);
+    });
+
+    //get home of individual owner
+    app.get("/myHomesForRent", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const myHome = await allHomeCollection.find(query).toArray();
+      res.send(myHome);
+    });
+
+    //get home of individual owner
+    app.delete("/delete-home/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const deleteHome = await allHomeCollection.deleteOne(query);
+      res.send(deleteHome);
+    });
+
+    // delete user from database and firebase
+    app.delete("/user-delete/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      // Check if the user exists in Firebase Authentication
+      const userRecord = await admin.auth().getUserByEmail(email);
+
+      // Delete user from Firebase Authentication
+      await admin.auth().deleteUser(userRecord.uid);
+
+      const deleteUser = await usersCollection.deleteOne(query);
+      if (!deleteUser) {
+        return res.status(403).send({ message: "Forbidden access" });
+      }
+      const deleteHomes = await allHomeCollection.deleteMany(query);
+      res.status(200).json({ message: "User deleted successfully." });
     });
   } finally {
   }
