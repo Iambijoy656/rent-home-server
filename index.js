@@ -42,7 +42,7 @@ function sendPaymentEmail(payment) {
 
   transporter.sendMail(
     {
-      from: "bijoydas00656@gmail.com", // verified sender email
+      from: "pppeyal@gmail.com", // verified sender email
       to: payment.email || "bijoydas00656@gmail.com", // recipient email
       subject: `Your advance payment for Home rent is confirm`, // Subject line
       text: `Hello ${payment.name}`, // plain text body
@@ -87,20 +87,20 @@ async function run() {
 
     //get bachelors all homes
     app.get("/bachelosHomes", async (req, res) => {
-      const query = { available: "true", type: "bechalors" };
+      const query = { available: true, type: "bechalors" };
       const option = await allHomeCollection.find(query).toArray();
       res.send(option);
     });
 
     //get bachelors latest 3 homes
     app.get("/latestBachelosHomes", async (req, res) => {
-      const availableQuery = { available: "true", type: "bechalors" };
+      const availableQuery = { available: true, type: "bechalors" };
       const availableHomes = await allHomeCollection
         .find(availableQuery)
         .sort({ date: -1 })
         .toArray();
       const filter = availableHomes
-        .filter((availableHome) => availableHome.available === "true")
+        .filter((availableHome) => availableHome.available == true)
         .slice(0, 3);
       res.send(filter);
     });
@@ -134,7 +134,7 @@ async function run() {
     //   const options = { upsert: true };
     //   const updatedDoc = {
     //     $set: {
-    //       available: "true",
+    //       available: true,
     //     },
     //   };
     //   const result = await allHomeCollection.updateMany(
@@ -157,11 +157,12 @@ async function run() {
               address: location,
               district: district,
               type: type,
+              available: true,
             },
           ],
         };
       } else {
-        query = { type: type };
+        query = { type: type, available: true };
       }
 
       const option = await allHomeCollection.find(query).toArray();
@@ -170,13 +171,13 @@ async function run() {
 
     //get family latest 3 homes
     app.get("/latestFamilyHomes", async (req, res) => {
-      const availableQuery = { available: "true", type: "family" };
+      const availableQuery = { available: true, type: "family" };
       const availableHomes = await allHomeCollection
         .find(availableQuery)
         .sort({ date: -1 })
         .toArray();
       const filter = availableHomes
-        .filter((availableHome) => availableHome.available === "true")
+        .filter((availableHome) => availableHome.available == true)
         .slice(0, 3);
       res.send(filter);
     });
@@ -199,7 +200,7 @@ async function run() {
       const email = req.params.email;
       const query = { email };
       const user = await usersCollection.findOne(query);
-      res.send({ isAdmin: user?.role === "admin" });
+      res.send({ isAdmin: user?.role == "admin" });
     });
 
     //creak home owner
@@ -207,7 +208,7 @@ async function run() {
       const email = req.params.email;
       const query = { email };
       const user = await usersCollection.findOne(query);
-      res.send({ isOwner: user?.role === "owner" });
+      res.send({ isOwner: user?.role == "owner" });
     });
 
     //creak home Renter
@@ -215,16 +216,16 @@ async function run() {
       const email = req.params.email;
       const query = { email };
       const user = await usersCollection.findOne(query);
-      res.send({ isRenter: user?.role === "renter" });
+      res.send({ isRenter: user?.role == "renter" });
     });
 
     // make admin
-    app.put("/users/admin/:id", async (req, res) => {
+    app.patch("/users/admin/:id", async (req, res) => {
       const id = req.params.id;
-
       const user = await usersCollection.findOne({ _id: ObjectId(id) });
-      if (user.role !== "admin") {
-        return res.status(403).send({ message: "Forbidden access" });
+      if (user.role != "admin") {
+        // return res.status(403).send({ message: "Forbidden access" });
+        console.log(user.role);
       }
 
       const filter = { _id: ObjectId(id) };
@@ -292,6 +293,8 @@ async function run() {
     //add home by home owner
     app.post("/add-home", async (req, res) => {
       const home = req.body;
+      home.available = true;
+      // console.log(home);
       const result = await allHomeCollection.insertOne(home);
       res.send(result);
     });
@@ -304,7 +307,7 @@ async function run() {
       res.send(myHome);
     });
 
-    //get home of individual owner
+    // delete home
     app.delete("/delete-home/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
@@ -329,6 +332,59 @@ async function run() {
       const deleteHomes = await allHomeCollection.deleteMany(query);
       res.status(200).json({ message: "User deleted successfully." });
     });
+
+    //get all home
+    app.get("/allHomes", async (req, res) => {
+      const allHome = await allHomeCollection.find().toArray();
+      res.send(allHome);
+    });
+
+    //get booked home
+    app.get("/bookedHome", async (req, res) => {
+      try {
+        const email = req.query.email;
+        const query = { email: email };
+    
+        // Find the user's homes
+        const homes = await allHomeCollection.find(query).toArray();
+        const homeIds = homes.map((home) => home._id);
+    
+        // Find all payment data
+        const bookedHomes = await paymentsCollection.find().toArray();
+        const bookedHomeIds = bookedHomes.map((bookedHome) => bookedHome.bookHomeId);
+    
+        // Create empty arrays for matched homes and payments
+        const matchedHomes = [];
+        const matchedPayments = [];
+    
+        // Iterate through homeIds and find matching homes and payments
+        for (const homeId of homeIds) {
+          const homeIdString = homeId.toString();
+    
+          if (bookedHomeIds.includes(homeIdString)) {
+            // Find the matching home
+            const matchingHome = homes.find((home) => home._id.toString() === homeIdString);
+            matchedHomes.push(matchingHome);
+    
+            // Find the matching payment
+            const matchingPayment = bookedHomes.find((bookedHome) => bookedHome.bookHomeId.toString() === homeIdString);
+            matchedPayments.push(matchingPayment);
+          }
+        }
+    
+        // Create an object with both sets of data
+        const response = {
+          matchedHomes: matchedHomes,
+          matchedPayments: matchedPayments
+        };
+    
+        res.json(response);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
+
   } finally {
   }
 }
