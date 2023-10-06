@@ -87,14 +87,14 @@ async function run() {
 
     //get bachelors all homes
     app.get("/bachelosHomes", async (req, res) => {
-      const query = { available: true, type: "bechalors" };
+      const query = { available: true, verified: true, type: "bechalors" };
       const option = await allHomeCollection.find(query).toArray();
       res.send(option);
     });
 
     //get bachelors latest 3 homes
     app.get("/latestBachelosHomes", async (req, res) => {
-      const availableQuery = { available: true, type: "bechalors" };
+      const availableQuery = { available: true,  verified: true, type: "bechalors" };
       const availableHomes = await allHomeCollection
         .find(availableQuery)
         .sort({ date: -1 })
@@ -134,7 +134,8 @@ async function run() {
     //   const options = { upsert: true };
     //   const updatedDoc = {
     //     $set: {
-    //       available: true,
+    //       // available: true,
+    //       verified: true,
     //     },
     //   };
     //   const result = await allHomeCollection.updateMany(
@@ -158,11 +159,12 @@ async function run() {
               district: district,
               type: type,
               available: true,
+              verified: true,
             },
           ],
         };
       } else {
-        query = { type: type, available: true };
+        query = { type: type, available: true, verified: true };
       }
 
       const option = await allHomeCollection.find(query).toArray();
@@ -171,11 +173,12 @@ async function run() {
 
     //get family latest 3 homes
     app.get("/latestFamilyHomes", async (req, res) => {
-      const availableQuery = { available: true, type: "family" };
+      const availableQuery = { available: true, verified: true, type: "family" };
       const availableHomes = await allHomeCollection
         .find(availableQuery)
         .sort({ date: -1 })
         .toArray();
+        
       const filter = availableHomes
         .filter((availableHome) => availableHome.available == true)
         .slice(0, 3);
@@ -243,6 +246,35 @@ async function run() {
       res.send(result);
     });
 
+// make Verify Home 
+app.patch("/home/verify/:id", async (req, res) => {
+  const id = req.params.id;
+  const home = await allHomeCollection.findOne({ _id: ObjectId(id) });
+  // if (home.verified != true) {
+  //   // return res.status(403).send({ message: "Forbidden access" });
+  //   console.log(home.role);
+  // }
+
+  const filter = { _id: ObjectId(id) };
+  const options = { upsert: true };
+  const updatedDoc = {
+    $set: {
+      verified: true,
+    },
+  };
+  const result = await allHomeCollection.updateOne(
+    filter,
+    updatedDoc,
+    options
+  );
+  res.send(result);
+});
+
+
+
+
+
+
     //for payment
     app.post("/create-payment-intent", async (req, res) => {
       const home = req.body;
@@ -294,7 +326,8 @@ async function run() {
     app.post("/add-home", async (req, res) => {
       const home = req.body;
       home.available = true;
-      // console.log(home);
+      home.verified= false;
+      console.log(home);
       const result = await allHomeCollection.insertOne(home);
       res.send(result);
     });
