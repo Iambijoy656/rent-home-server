@@ -72,6 +72,7 @@ async function run() {
     const allHomeCollection = client.db("rentHome").collection("allHomes");
     const usersCollection = client.db("rentHome").collection("users");
     const paymentsCollection = client.db("rentHome").collection("payments");
+    const wishlistCollection = client.db("rentHome").collection("wishlist");
 
     //get common location
     app.get("/commonLocation", async (req, res) => {
@@ -87,14 +88,19 @@ async function run() {
 
     //get bachelors all homes
     app.get("/bachelosHomes", async (req, res) => {
-      const query = { available: true, verified: true, type: "bechalors" };
+      const query = { available: true, verified: true, wishlist:false, type: "bechalors" };
       const option = await allHomeCollection.find(query).toArray();
       res.send(option);
     });
 
     //get bachelors latest 3 homes
     app.get("/latestBachelosHomes", async (req, res) => {
-      const availableQuery = { available: true,  verified: true, type: "bechalors" };
+      const availableQuery = {
+        available: true,
+        verified: true,
+        wishlist:false,
+        type: "bechalors",
+      };
       const availableHomes = await allHomeCollection
         .find(availableQuery)
         .sort({ date: -1 })
@@ -160,11 +166,12 @@ async function run() {
               type: type,
               available: true,
               verified: true,
+              wishlist:false,
             },
           ],
         };
       } else {
-        query = { type: type, available: true, verified: true };
+        query = { type: type, available: true, verified: true,wishlist:false, };
       }
 
       const option = await allHomeCollection.find(query).toArray();
@@ -173,12 +180,17 @@ async function run() {
 
     //get family latest 3 homes
     app.get("/latestFamilyHomes", async (req, res) => {
-      const availableQuery = { available: true, verified: true, type: "family" };
+      const availableQuery = {
+        available: true,
+        verified: true,
+        wishlist:false,
+        type: "family",
+      };
       const availableHomes = await allHomeCollection
         .find(availableQuery)
         .sort({ date: -1 })
         .toArray();
-        
+
       const filter = availableHomes
         .filter((availableHome) => availableHome.available == true)
         .slice(0, 3);
@@ -246,34 +258,24 @@ async function run() {
       res.send(result);
     });
 
-// make Verify Home 
-app.patch("/home/verify/:id", async (req, res) => {
-  const id = req.params.id;
-  const home = await allHomeCollection.findOne({ _id: ObjectId(id) });
-  // if (home.verified != true) {
-  //   // return res.status(403).send({ message: "Forbidden access" });
-  //   console.log(home.role);
-  // }
-
-  const filter = { _id: ObjectId(id) };
-  const options = { upsert: true };
-  const updatedDoc = {
-    $set: {
-      verified: true,
-    },
-  };
-  const result = await allHomeCollection.updateOne(
-    filter,
-    updatedDoc,
-    options
-  );
-  res.send(result);
-});
-
-
-
-
-
+    // make Verify Home
+    app.patch("/home/verify/:id", async (req, res) => {
+      const id = req.params.id;
+      const home = await allHomeCollection.findOne({ _id: ObjectId(id) });
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          verified: true,
+        },
+      };
+      const result = await allHomeCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
 
     //for payment
     app.post("/create-payment-intent", async (req, res) => {
@@ -326,7 +328,8 @@ app.patch("/home/verify/:id", async (req, res) => {
     app.post("/add-home", async (req, res) => {
       const home = req.body;
       home.available = true;
-      home.verified= false;
+      home.verified = false;
+      home.wishlist = false;
       console.log(home);
       const result = await allHomeCollection.insertOne(home);
       res.send(result);
@@ -377,40 +380,46 @@ app.patch("/home/verify/:id", async (req, res) => {
       try {
         const email = req.query.email;
         const query = { email: email };
-    
+
         // Find the user's homes
         const homes = await allHomeCollection.find(query).toArray();
         const homeIds = homes.map((home) => home._id);
-    
+
         // Find all payment data
         const bookedHomes = await paymentsCollection.find().toArray();
-        const bookedHomeIds = bookedHomes.map((bookedHome) => bookedHome.bookHomeId);
-    
+        const bookedHomeIds = bookedHomes.map(
+          (bookedHome) => bookedHome.bookHomeId
+        );
+
         // Create empty arrays for matched homes and payments
         const matchedHomes = [];
         const matchedPayments = [];
-    
+
         // Iterate through homeIds and find matching homes and payments
         for (const homeId of homeIds) {
           const homeIdString = homeId.toString();
-    
+
           if (bookedHomeIds.includes(homeIdString)) {
             // Find the matching home
-            const matchingHome = homes.find((home) => home._id.toString() === homeIdString);
+            const matchingHome = homes.find(
+              (home) => home._id.toString() === homeIdString
+            );
             matchedHomes.push(matchingHome);
-    
+
             // Find the matching payment
-            const matchingPayment = bookedHomes.find((bookedHome) => bookedHome.bookHomeId.toString() === homeIdString);
+            const matchingPayment = bookedHomes.find(
+              (bookedHome) => bookedHome.bookHomeId.toString() === homeIdString
+            );
             matchedPayments.push(matchingPayment);
           }
         }
-    
+
         // Create an object with both sets of data
         const response = {
           matchedHomes: matchedHomes,
-          matchedPayments: matchedPayments
+          matchedPayments: matchedPayments,
         };
-    
+
         res.json(response);
       } catch (error) {
         console.error(error);
@@ -418,6 +427,33 @@ app.patch("/home/verify/:id", async (req, res) => {
       }
     });
 
+    //wishlist
+    app.post("/wishlist", async (req, res) => {
+      const wishlistData = req.body
+      const result = await wishlistCollection.insertOne(wishlistData);
+      res.send(result);
+
+    });
+
+    // update home collection after added wishlist
+    app.patch("/wishlist/:id", async (req, res) => {
+      const id = req.params.id;
+      const home = await allHomeCollection.findOne({ _id: ObjectId(id) });
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          wishlist: true,
+          date: new Date
+        },
+      };
+      const result = await allHomeCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
   } finally {
   }
 }
