@@ -88,7 +88,12 @@ async function run() {
 
     //get bachelors all homes
     app.get("/bachelosHomes", async (req, res) => {
-      const query = { available: true, verified: true, wishlist:false, type: "bechalors" };
+      const query = {
+        available: true,
+        verified: true,
+        wishlist: false,
+        type: "bechalors",
+      };
       const option = await allHomeCollection.find(query).toArray();
       res.send(option);
     });
@@ -98,7 +103,7 @@ async function run() {
       const availableQuery = {
         available: true,
         verified: true,
-        wishlist:false,
+        wishlist: false,
         type: "bechalors",
       };
       const availableHomes = await allHomeCollection
@@ -166,12 +171,17 @@ async function run() {
               type: type,
               available: true,
               verified: true,
-              wishlist:false,
+              wishlist: false,
             },
           ],
         };
       } else {
-        query = { type: type, available: true, verified: true,wishlist:false, };
+        query = {
+          type: type,
+          available: true,
+          verified: true,
+          wishlist: false,
+        };
       }
 
       const option = await allHomeCollection.find(query).toArray();
@@ -183,7 +193,7 @@ async function run() {
       const availableQuery = {
         available: true,
         verified: true,
-        wishlist:false,
+        wishlist: false,
         type: "family",
       };
       const availableHomes = await allHomeCollection
@@ -428,23 +438,76 @@ async function run() {
     });
 
     //wishlist
-    app.post("/wishlist", async (req, res) => {
-      const wishlistData = req.body
-      const result = await wishlistCollection.insertOne(wishlistData);
-      res.send(result);
+    // app.post("/wishlist", async (req, res) => {
+    //   const wishlistData = req.body;
+    //   wishlistData.time= new Date();
+     
 
+    //   // Extract the _id from wishlistHome
+    //   const wishlistHomeId = wishlistData.wishlistHome._id;
+
+    //   const existswishlistHome = await wishlistCollection.findOne({
+    //     "wishlistHome._id": wishlistHomeId,
+    //   });
+    //   if (existswishlistHome) {
+    //     res.status(200).json({ message: "you have already added in wishlist" });
+    //   } else {
+    //     const result = await wishlistCollection.insertOne(wishlistData);
+    //     res.send(result);
+    //   }
+    // });
+
+
+    app.post("/wishlist", async (req, res) => {
+      const wishlistData = req.body;
+      wishlistData.time = new Date();
+    
+      // Extract the _id from wishlistHome
+      const wishlistHomeId = wishlistData.wishlistHome._id;
+    
+      const existswishlistHome = await wishlistCollection.findOne({
+        "wishlistHome._id": wishlistHomeId,
+      });
+    
+      if (existswishlistHome) {
+        res.status(200).json({ message: "You have already added to the wishlist" });
+      } else {
+        const result = await wishlistCollection.insertOne(wishlistData);
+    
+        // Set a timer to delete the wishlist data and update allHomeCollection
+        setTimeout(async () => {
+          const deleteResult = await wishlistCollection.deleteOne({
+            _id: result.insertedId,
+          });
+    
+          if (deleteResult.deletedCount === 1) {
+            // Update allHomeCollection to set wishlist to false
+            const homeId = wishlistData.wishlistHome._id;
+            const homeFilter = { _id: ObjectId(homeId) };
+            const updatedDoc = {
+              $set: {
+                wishlist: false,
+              },
+            };
+            await allHomeCollection.updateOne(homeFilter, updatedDoc);
+          }
+        }, 60000); // 1 hour in milliseconds
+    
+        res.send(result);
+      }
     });
+    
 
     // update home collection after added wishlist
     app.patch("/wishlist/:id", async (req, res) => {
       const id = req.params.id;
-      const home = await allHomeCollection.findOne({ _id: ObjectId(id) });
+      const homeId = await allHomeCollection.findOne({ _id: ObjectId(id) });
       const filter = { _id: ObjectId(id) };
       const options = { upsert: true };
       const updatedDoc = {
         $set: {
           wishlist: true,
-          date: new Date
+         
         },
       };
       const result = await allHomeCollection.updateOne(
@@ -453,6 +516,14 @@ async function run() {
         options
       );
       res.send(result);
+    });
+
+    //
+    app.get("/wishlistHome", async (req, res) => {
+      const email = req.query.email;
+      const query = { renterEmail: email};
+      const wishlistHome = await wishlistCollection.find(query).toArray();
+      res.send(wishlistHome);
     });
   } finally {
   }
