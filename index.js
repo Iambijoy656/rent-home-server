@@ -157,25 +157,44 @@ async function run() {
     //   res.send(result);
     // });
 
+    app.post("/homes/filtering", async (req, res) => {
+      const filter = req.body;
+      const type = filter.type;
+      filter.price = filter.price == "" ? "2000,500000" : filter.price;
+
+      const minPrice = parseInt(filter.price.split(",")[0]);
+      const maxPrice = parseInt(filter.price.split(",")[1]);
+
+      console.log(minPrice, maxPrice);
+      const filtersHomes = await allHomeCollection
+        .find({
+          $or: [{ rent: { $gte: minPrice, $lte: maxPrice } }],
+        })
+        .toArray();
+      console.log(filtersHomes);
+      console.log(filtersHomes.length);
+
+      // res.send(filtersHomes);
+    });
+
     //get query all homes
     app.get("/homes", async (req, res) => {
       const { location, district, type, price } = req.query;
 
-      const minPrice = parseInt(price.split("-")[0]);
+      const minPrice = parseInt(price.split("-")[0]) || 0;
 
-      const maxPrice = parseInt(price.split("-")[1]);
-     
+      const maxPrice = parseInt(price.split("-")[1]) || 500000;
 
       let query = {};
 
-      if (location && district && type || price) {
+      if (location && district && type) {
         query = {
           $or: [
             {
               address: location,
               district: district,
               type: type,
-              rent:{$gte: minPrice , $lte: maxPrice},
+              // rent:{$gte: minPrice , $lte: maxPrice},
               available: true,
               verified: true,
               wishlist: false,
