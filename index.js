@@ -161,21 +161,22 @@ async function run() {
       const filter = req.body;
       const type = filter.type;
       filter.price = filter.price == "" ? "2000,500000" : filter.price;
-
+    
       const minPrice = parseInt(filter.price.split(",")[0]);
       const maxPrice = parseInt(filter.price.split(",")[1]);
-
-      console.log(minPrice, maxPrice);
+    
       const filtersHomes = await allHomeCollection
         .find({
-          $or: [{ rent: { $gte: minPrice, $lte: maxPrice } }],
+          $and: [{ rent: { $gte: minPrice, $lte: maxPrice } }, { type: type },{verified: true},{available: true},{wishlist: false}],
         })
         .toArray();
+    
       console.log(filtersHomes);
       console.log(filtersHomes.length);
-
-      // res.send(filtersHomes);
+    
+      res.send(filtersHomes);
     });
+    
 
     //get query all homes
     app.get("/homes", async (req, res) => {
