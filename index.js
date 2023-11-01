@@ -161,22 +161,27 @@ async function run() {
       const filter = req.body;
       const type = filter.type;
       filter.price = filter.price == "" ? "2000,500000" : filter.price;
-    
+
       const minPrice = parseInt(filter.price.split(",")[0]);
       const maxPrice = parseInt(filter.price.split(",")[1]);
-    
+
       const filtersHomes = await allHomeCollection
         .find({
-          $and: [{ rent: { $gte: minPrice, $lte: maxPrice } }, { type: type },{verified: true},{available: true},{wishlist: false}],
+          $and: [
+            { rent: { $gte: minPrice, $lte: maxPrice } },
+            { type: type },
+            { verified: true },
+            { available: true },
+            { wishlist: false },
+          ],
         })
         .toArray();
-    
+
       console.log(filtersHomes);
       console.log(filtersHomes.length);
-    
+
       res.send(filtersHomes);
     });
-    
 
     //get query all homes
     app.get("/homes", async (req, res) => {
@@ -213,6 +218,7 @@ async function run() {
 
       const option = await allHomeCollection.find(query).toArray();
       res.send(option);
+      console.log(option);
     });
 
     //get family latest 3 homes
@@ -550,6 +556,29 @@ async function run() {
       const wishlistHome = await wishlistCollection.find(query).toArray();
       res.send(wishlistHome);
     });
+
+// Update user
+app.patch("/update/users/:email", async (req, res) => {
+  const email = req.params.email;
+  const updates = req.body;
+  console.log("filter: " + filter);
+  const result = await usersCollection.updateOne(
+    filter,
+    { $set: updates },
+    { upsert: true }
+  );
+  res.send(result);
+});
+
+
+   //get user 
+   app.get("/userData", async (req, res) => {
+    const email = req.query.email;
+    const query = { email: email };
+    const user = await usersCollection.findOne(query);
+    res.send(user);
+  });
+
   } finally {
   }
 }
