@@ -561,7 +561,7 @@ async function run() {
 app.patch("/update/users/:email", async (req, res) => {
   const email = req.params.email;
   const updates = req.body;
-  console.log("filter: " + filter);
+ const filter = { email: email };
   const result = await usersCollection.updateOne(
     filter,
     { $set: updates },
